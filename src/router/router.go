@@ -6,26 +6,16 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	//"math/rand"
 )
 
 type Cache map[string]string
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func randSeq(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
-
-func (cache Cache) Router(w http.ResponseWriter, r *http.Request) {
+func (cache Cache) Router(w http.ResponseWriter, r *http.Request, message chan<- map[string]string) {
 	switch r.Method {
 	case "POST":
-		result := cache.post(r)
+		result := cache.post(r, message)
 		fmt.Fprint(w, result)
-		fmt.Println(cache)
 		break
 	case "GET":
 		result := cache.get(r)
@@ -64,7 +54,7 @@ func (cache Cache) get(r *http.Request) string{
 }
 
 //add resource
-func (cache Cache) post(r *http.Request) string {
+func (cache Cache) post(r *http.Request, message chan<- map[string]string) string {
 	var response map[string]string
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -77,12 +67,12 @@ func (cache Cache) post(r *http.Request) string {
 	if len(response) == 0 {
 		return "none json in body"
 	}
-	for _, v := range response {
-		//if _, ok := cache[k]; ok {
-		//	return k + "%s already exist"
-		//}
-		cache[randSeq(10)] = v
-	}
+	//for k := range response {
+	//	if _, ok := cache[k]; ok {
+	//		return k + "%s already exist"
+	//	}
+	//}
+	message <- response
 	return "success"
 }
 
