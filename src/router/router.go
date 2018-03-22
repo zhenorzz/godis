@@ -10,8 +10,10 @@ import (
 	"sync"
 )
 
-type Cache map[string]string
-var mutex sync.Mutex
+type Cache struct {
+	Data map[string]string
+	Mutex *sync.RWMutex
+}
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func randSeq(n int) string {
@@ -30,17 +32,14 @@ func (cache Cache) Router(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		result := cache.get(r)
 		fmt.Fprint(w, result)
-		fmt.Println(cache)
 		break
 	case "PUT":
 		result := cache.put(r)
 		fmt.Fprint(w, result)
-		fmt.Println(cache)
 		break
 	case "DELETE":
 		result := cache.delete(r)
 		fmt.Fprint(w, result)
-		fmt.Println(cache)
 		break
 	default:
 		fmt.Fprint(w, "does not support this method")
@@ -56,8 +55,10 @@ func (cache Cache) get(r *http.Request) string{
 		return "no path info"
 	}
 	key := pathInfo[1]
-	if _, ok := cache[key]; ok {
-		return cache[key]
+	cache.Mutex.Lock()
+	defer cache.Mutex.Unlock()
+	if _, ok := cache.Data[key]; ok {
+		return cache.Data[key]
 	} else {
 		return  key + " is not exist"
 	}
@@ -77,14 +78,14 @@ func (cache Cache) post(r *http.Request) string {
 	if len(response) == 0 {
 		return "none json in body"
 	}
-	//for k := range response {
-	//	if _, ok := cache[k]; ok {
-	//		return k + "%s already exist"
-	//	}
-	//}
-	mutex.Lock()
-	defer mutex.Unlock()
-	cache[randSeq(10)] = "a"
+	cache.Mutex.Lock()
+	defer cache.Mutex.Unlock()
+	for k, v := range response {
+		if _, ok := cache.Data[k]; ok {
+			return k + "%s already exist"
+		}
+		cache.Data[k] = v
+	}
 	return "success"
 }
 
@@ -102,9 +103,11 @@ func (cache Cache) put(r *http.Request) string {
 	if len(response) == 0 {
 		return "none json in body"
 	}
+	cache.Mutex.Lock()
+	defer cache.Mutex.Unlock()
 	for k, v := range response {
-		if _, ok := cache[k]; ok {
-			cache[k] = v
+		if _, ok := cache.Data[k]; ok {
+			cache.Data[k] = v
 		} else {
 			return k + " is not exist"
 		}
@@ -120,8 +123,10 @@ func (cache Cache) delete(r *http.Request) string {
 		return "no path info"
 	}
 	key := pathInfo[1]
-	if _, ok := cache[key]; ok {
-		delete(cache,key)
+	cache.Mutex.Lock()
+	defer cache.Mutex.Unlock()
+	if _, ok := cache.Data[key]; ok {
+		delete(cache.Data,key)
 	} else {
 		return  key + " is not exist"
 	}

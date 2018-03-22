@@ -4,10 +4,11 @@ import (
 	"net/http"
 	"log"
 	"router"
+	"sync"
 )
 
 func main() {
-	cache := make(router.Cache)
+	cache := router.Cache{Data:make(map[string]string),Mutex: &sync.RWMutex{}}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		cache.Router(w, r)
 	})
