@@ -6,15 +6,25 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"fmt"
-	//"math/rand"
+	"math/rand"
+	"sync"
 )
 
 type Cache map[string]string
+var mutex sync.Mutex
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func (cache Cache) Router(w http.ResponseWriter, r *http.Request, message chan<- map[string]string) {
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+func (cache Cache) Router(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
-		result := cache.post(r, message)
+		result := cache.post(r)
 		fmt.Fprint(w, result)
 		break
 	case "GET":
@@ -54,7 +64,7 @@ func (cache Cache) get(r *http.Request) string{
 }
 
 //add resource
-func (cache Cache) post(r *http.Request, message chan<- map[string]string) string {
+func (cache Cache) post(r *http.Request) string {
 	var response map[string]string
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -72,7 +82,9 @@ func (cache Cache) post(r *http.Request, message chan<- map[string]string) strin
 	//		return k + "%s already exist"
 	//	}
 	//}
-	message <- response
+	mutex.Lock()
+	defer mutex.Unlock()
+	cache[randSeq(10)] = "a"
 	return "success"
 }
 
