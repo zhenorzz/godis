@@ -238,6 +238,7 @@ func (tree *Tree) insertIntoLeafAfterSplitting(leaf *Node, key int, pointer *Rec
 	}
 
 	newLeaf.Parent = leaf.Parent
+	//child node include
 	newKey = newLeaf.Keys[0]
 
 	return tree.insertIntoParent(leaf, newKey, newLeaf)
@@ -271,8 +272,7 @@ func getLeftIndex(parent, left *Node) int {
 }
 
 func insertIntoNode(node *Node, leftIndex, key int, right *Node) {
-	var i int
-	for i = node.NumKeys; i > leftIndex; i-- {
+	for i := node.NumKeys; i > leftIndex; i-- {
 		node.Pointers[i+1] = node.Pointers[i]
 		node.Keys[i] = node.Keys[i-1]
 	}
