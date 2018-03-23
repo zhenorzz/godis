@@ -12,7 +12,7 @@ import (
 
 type Cache struct {
 	Data map[string]string
-	Mutex *sync.RWMutex
+	Mutex *sync.Mutex
 }
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 

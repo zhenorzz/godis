@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	cache := router.Cache{Data:make(map[string]string),Mutex: &sync.RWMutex{}}
+	cache := router.Cache{Data:make(map[string]string),Mutex: &sync.Mutex{}}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		cache.Router(w, r)
 	})
