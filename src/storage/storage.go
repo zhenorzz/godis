@@ -29,7 +29,6 @@ func Read(cache *router.Cache) error {
 		if err != nil {
 			return err
 		}
-		f.WriteString("\xEF\xBB\xBF") // 写入UTF-8 BOM
 	}
 	defer f.Close()
 	return nil
