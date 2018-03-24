@@ -5,7 +5,6 @@ import (
 	"strings"
 	"io/ioutil"
 	"encoding/json"
-	"fmt"
 	"math/rand"
 	"sync"
 )
@@ -23,32 +22,9 @@ func randSeq(n int) string {
 	}
 	return string(b)
 }
-func (cache Cache) Router(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "POST":
-		result := cache.post(r)
-		fmt.Fprint(w, result)
-		break
-	case "GET":
-		result := cache.get(r)
-		fmt.Fprint(w, result)
-		break
-	case "PUT":
-		result := cache.put(r)
-		fmt.Fprint(w, result)
-		break
-	case "DELETE":
-		result := cache.delete(r)
-		fmt.Fprint(w, result)
-		break
-	default:
-		fmt.Fprint(w, "does not support this method")
-	}
-
-}
 
 //get resource
-func (cache Cache) get(r *http.Request) string{
+func (cache Cache) Get(r *http.Request) string{
 	uri := r.RequestURI
 	pathInfo := strings.Split(uri, "/")
 	if len(pathInfo) == 0 {
@@ -65,7 +41,7 @@ func (cache Cache) get(r *http.Request) string{
 }
 
 //add resource
-func (cache Cache) post(r *http.Request) string {
+func (cache Cache) Post(r *http.Request, postChan chan<- map[string]string) string {
 	var response map[string]string
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -86,11 +62,12 @@ func (cache Cache) post(r *http.Request) string {
 		}
 		cache.Data[k] = v
 	}
+	postChan <- response
 	return "success"
 }
 
 //update resource
-func (cache Cache) put(r *http.Request) string {
+func (cache Cache) Put(r *http.Request) string {
 	var response map[string]string
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -116,7 +93,7 @@ func (cache Cache) put(r *http.Request) string {
 }
 
 //delete resource
-func (cache Cache) delete(r *http.Request) string {
+func (cache Cache) Delete(r *http.Request) string {
 	uri := r.RequestURI
 	pathInfo := strings.Split(uri, "/")
 	if len(pathInfo) == 0 {
