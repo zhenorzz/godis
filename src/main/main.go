@@ -11,12 +11,14 @@ import (
 
 func main() {
 	postChan := make(chan map[string]string)
+	putChan := make(chan []string)
+	delChan := make(chan string)
 	cache := router.Cache{Data: make(map[string]string), Mutex: &sync.RWMutex{}}
-	w, err := storage.New("test.csv", &cache)
+	err := storage.Read(&cache)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(cache.Data)
+	fmt.Println(cache)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "POST":
@@ -28,11 +30,11 @@ func main() {
 			fmt.Fprint(w, result)
 			break
 		case "PUT":
-			result := cache.Put(r)
+			result := cache.Put(r, putChan)
 			fmt.Fprint(w, result)
 			break
 		case "DELETE":
-			result := cache.Delete(r)
+			result := cache.Delete(r, delChan)
 			fmt.Fprint(w, result)
 			break
 		default:
@@ -44,8 +46,12 @@ func main() {
 	go func() {
 		for {
 			select {
-			case message := <-postChan:
-				storage.Write(w, message)
+			case addData := <-postChan:
+				storage.Write(addData)
+			case updateData := <-putChan:
+				storage.Update(updateData)
+			case key := <-delChan:
+				storage.Delete(key)
 			}
 		}
 	}()

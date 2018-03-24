@@ -5,42 +5,89 @@ import (
 	"encoding/csv"
 	"router"
 )
-
-func New(file string, cache *router.Cache) (*csv.Writer, error) {
+var file = "test.csv"
+func Read(cache *router.Cache) error {
 	var f *os.File
-	var w *csv.Writer
-	_, err := os.Stat(file)
+	var err error
+	_, err = os.Stat(file)
 	if err == nil {
-		f, err := os.OpenFile(file, os.O_APPEND, 0666)
+		f, err = os.OpenFile(file, os.O_APPEND, 0666)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		reader := csv.NewReader(f)
 		records, err := reader.ReadAll()
-		if err != nil {
-			return nil, err
-		}
-		for _, slice := range records {
-			if len(slice) == 2 {
-				cache.Data[slice[0]] = slice[1]
+		if err == nil {
+			for _, slice := range records {
+				if len(slice) == 2 {
+					cache.Data[slice[0]] = slice[1]
+				}
 			}
 		}
-		w = csv.NewWriter(f)
 	} else {
-		f, err := os.Create(file)//创建文件
+		f, err = os.Create(file)//创建文件
 		if err != nil {
-			return nil, err
+			return err
 		}
 		f.WriteString("\xEF\xBB\xBF") // 写入UTF-8 BOM
-		w = csv.NewWriter(f)//创建一个新的写入文件流
 	}
 	defer f.Close()
-	return w, nil
+	return nil
 }
 
-func Write(w *csv.Writer, message map[string]string) {
-	for k, v := range message {
+func Write(data map[string]string) {
+	f, err:= os.OpenFile(file, os.O_APPEND, 0666)
+	if err != nil {
+		return
+	}
+	w := csv.NewWriter(f)
+	for k, v := range data {
 		w.Write([]string{k, v})
 	}
 	w.Flush()
+}
+
+func Update(data []string) {
+	f, err:= os.OpenFile(file, os.O_RDONLY, 0666)
+	if err != nil {
+		return
+	}
+	r := csv.NewReader(f)
+	records, _ := r.ReadAll()
+	for k, v := range records {
+		if v[0] == data[0] {
+			records[k][1] = data[1]
+		}
+	}
+	f.Close()
+	f,err = os.Create(file)//创建文件
+	if err != nil {
+		return
+	}
+	w := csv.NewWriter(f)
+	w.WriteAll(records)
+	f.Close()
+}
+
+func Delete(data string) {
+	f, err:= os.OpenFile(file, os.O_RDONLY, 0666)
+	if err != nil {
+		return
+	}
+	r := csv.NewReader(f)
+	records, _ := r.ReadAll()
+	f.Close()
+	f,err = os.Create(file)//创建文件
+	if err != nil {
+		return
+	}
+	w := csv.NewWriter(f)
+	for _, v := range records {
+		if v[0] != data {
+			w.Write(v)
+
+		}
+	}
+	w.Flush()
+	f.Close()
 }

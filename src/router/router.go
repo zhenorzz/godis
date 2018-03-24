@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"math/rand"
 	"sync"
+	"fmt"
 )
 
 type Cache struct {
-	Data map[string]string
+	Data  map[string]string
 	Mutex *sync.RWMutex
 }
+
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func randSeq(n int) string {
@@ -24,7 +26,7 @@ func randSeq(n int) string {
 }
 
 //get resource
-func (cache Cache) Get(r *http.Request) string{
+func (cache Cache) Get(r *http.Request) string {
 	uri := r.RequestURI
 	pathInfo := strings.Split(uri, "/")
 	if len(pathInfo) == 0 {
@@ -36,7 +38,7 @@ func (cache Cache) Get(r *http.Request) string{
 	if _, ok := cache.Data[key]; ok {
 		return cache.Data[key]
 	} else {
-		return  key + " is not exist"
+		return key + " is not exist"
 	}
 }
 
@@ -67,7 +69,7 @@ func (cache Cache) Post(r *http.Request, postChan chan<- map[string]string) stri
 }
 
 //update resource
-func (cache Cache) Put(r *http.Request) string {
+func (cache Cache) Put(r *http.Request, putChan chan<- []string) string {
 	var response map[string]string
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -85,6 +87,7 @@ func (cache Cache) Put(r *http.Request) string {
 	for k, v := range response {
 		if _, ok := cache.Data[k]; ok {
 			cache.Data[k] = v
+			putChan <- []string{k, v}
 		} else {
 			return k + " is not exist"
 		}
@@ -93,7 +96,7 @@ func (cache Cache) Put(r *http.Request) string {
 }
 
 //delete resource
-func (cache Cache) Delete(r *http.Request) string {
+func (cache Cache) Delete(r *http.Request, delChan chan<- string) string {
 	uri := r.RequestURI
 	pathInfo := strings.Split(uri, "/")
 	if len(pathInfo) == 0 {
@@ -102,10 +105,12 @@ func (cache Cache) Delete(r *http.Request) string {
 	key := pathInfo[1]
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
+	fmt.Println(cache.Data[key])
 	if _, ok := cache.Data[key]; ok {
-		delete(cache.Data,key)
+		delete(cache.Data, key)
+		delChan <- key
 	} else {
-		return  key + " is not exist"
+		return key + " is not exist"
 	}
 	return "success"
 }
