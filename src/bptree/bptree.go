@@ -3,6 +3,7 @@ package bptree
 import (
 	"errors"
 	"fmt"
+	"reflect"
 )
 
 var order = 4
@@ -371,4 +372,221 @@ func cut(length int) int {
 	}
 
 	return length/2 + 1
+}
+
+func (tree *Tree) Delete(key int) error {
+	keyRecord, err := tree.Find(key, false)
+	if err != nil {
+		return err
+	}
+
+	keyLeaf := tree.findLeaf(key, false)
+	if keyRecord != nil && keyLeaf != nil {
+		tree.deleteEntry(keyLeaf, key, keyRecord)
+	}
+	return nil
+}
+func (tree *Tree) deleteEntry(node *Node, key int, pointer interface{}) {
+	var minKeys, neighbourIndex, kPrimeIndex, kPrime, capacity int
+	var neighbour *Node
+
+	node = removeEntryFromNode(node, key, pointer)
+	if node == tree.Root {
+		tree.adjustRoot()
+		return
+	}
+
+	if node.IsLeaf {
+		minKeys = cut(order - 1)
+	} else {
+		minKeys = cut(order) - 1
+	}
+	if node.NumKeys >= minKeys {
+		return
+	}
+	neighbourIndex = getNeighbourIndex(node)
+
+	if neighbourIndex == -1 {
+		kPrimeIndex = 0
+	} else {
+		kPrimeIndex = neighbourIndex
+	}
+
+	kPrime = node.Parent.Keys[kPrimeIndex]
+
+	if neighbourIndex == -1 {
+		neighbour = node.Parent.Pointers[1].(*Node)
+	} else {
+		neighbour = node.Parent.Pointers[neighbourIndex].(*Node)
+	}
+
+	if node.IsLeaf {
+		capacity = order
+	} else {
+		capacity = order - 1
+	}
+
+	if neighbour.NumKeys+node.NumKeys < capacity {
+		tree.coalesceNodes(node, neighbour, neighbourIndex, kPrime)
+		return
+	} else {
+		tree.redistributeNodes(node, neighbour, neighbourIndex, kPrimeIndex, kPrime)
+	}
+}
+
+func removeEntryFromNode(node *Node, key int, pointer interface{}) *Node {
+	var i, numPointers int
+
+	for node.Keys[i] != key {
+		i++
+	}
+
+	for i++; i < node.NumKeys; i++ {
+		node.Keys[i-1] = node.Keys[i]
+	}
+
+	if node.IsLeaf {
+		numPointers = node.NumKeys
+	} else {
+		numPointers = node.NumKeys + 1
+	}
+
+	i = 0
+	for node.Pointers[i] != pointer {
+		i++
+	}
+	for i++; i < numPointers; i++ {
+		node.Pointers[i-1] = node.Pointers[i]
+	}
+	node.NumKeys--
+
+	if node.IsLeaf {
+		for i = node.NumKeys; i < order-1; i++ {
+			node.Pointers[i] = nil
+		}
+	} else {
+		for i = node.NumKeys + 1; i < order; i++ {
+			node.Pointers[i] = nil
+		}
+	}
+	return node
+}
+
+func (tree *Tree) adjustRoot() {
+	var newRoot *Node
+	if tree.Root.NumKeys > 0 {
+		return
+	}
+	if !tree.Root.IsLeaf {
+		newRoot = tree.Root.Pointers[0].(*Node)
+		newRoot.Parent = nil
+	} else {
+		newRoot = nil
+	}
+	tree.Root = newRoot
+	return
+}
+
+func getNeighbourIndex(node *Node) int {
+	var i int
+	for i = 0; i <= node.Parent.NumKeys; i++ {
+		if reflect.DeepEqual(node.Parent.Pointers[i], node) {
+			return i - 1
+		}
+	}
+	return i
+}
+
+func (tree *Tree) coalesceNodes(node, neighbour *Node, neighbourIndex, kPrime int) {
+	var i, j, neighbourInsertionIndex, nEnd int
+	var tmp *Node
+
+	if neighbourIndex == -1 {
+		tmp = node
+		node = neighbour
+		neighbour = tmp
+	}
+
+	neighbourInsertionIndex = neighbour.NumKeys
+
+	if !node.IsLeaf {
+		neighbour.Keys[neighbourInsertionIndex] = kPrime
+		neighbour.NumKeys++
+		nEnd = node.NumKeys
+		i = neighbourInsertionIndex + 1
+		for j = 0; j < nEnd; j++ {
+			neighbour.Keys[i] = node.Keys[j]
+			neighbour.Pointers[i] = node.Pointers[j]
+			neighbour.NumKeys++
+			node.NumKeys--
+			i++
+		}
+		neighbour.Pointers[i] = node.Pointers[j]
+
+		for i = 0; i < neighbour.NumKeys+1; i++ {
+			tmp = neighbour.Pointers[i].(*Node)
+			tmp.Parent = neighbour
+		}
+	} else {
+		i = neighbourInsertionIndex
+		for j = 0; j < node.NumKeys; j++ {
+			neighbour.Keys[i] = node.Keys[j]
+			node.Pointers[i] = node.Pointers[j]
+			neighbour.NumKeys++
+		}
+		neighbour.Pointers[order-1] = node.Pointers[order-1]
+	}
+
+	tree.deleteEntry(node.Parent, kPrime, node)
+}
+
+func (tree *Tree) redistributeNodes(node, neighbour *Node, neighbourIndex, kPrimeIndex, kPrime int) {
+	var i int
+	var tmp *Node
+
+	if neighbourIndex != -1 {
+		if !node.IsLeaf {
+			node.Pointers[node.NumKeys+1] = node.Pointers[node.NumKeys]
+		}
+		for i = node.NumKeys; i > 0; i-- {
+			node.Keys[i] = node.Keys[i-1]
+			node.Pointers[i] = node.Pointers[i-1]
+		}
+		if !node.IsLeaf {
+			node.Pointers[0] = neighbour.Pointers[neighbour.NumKeys]
+			tmp = node.Pointers[0].(*Node)
+			tmp.Parent = node
+			neighbour.Pointers[neighbour.NumKeys] = nil
+			node.Keys[0] = kPrime
+			node.Parent.Keys[kPrimeIndex] = neighbour.Keys[neighbour.NumKeys-1]
+		} else {
+			node.Pointers[0] = neighbour.Pointers[neighbour.NumKeys-1]
+			neighbour.Pointers[neighbour.NumKeys-1] = nil
+			node.Keys[0] = neighbour.Keys[neighbour.NumKeys-1]
+			node.Parent.Keys[kPrimeIndex] = node.Keys[0]
+		}
+	} else {
+		if node.IsLeaf {
+			node.Keys[node.NumKeys] = neighbour.Keys[0]
+			node.Pointers[node.NumKeys] = neighbour.Pointers[0]
+			node.Parent.Keys[kPrimeIndex] = neighbour.Keys[1]
+		} else {
+			node.Keys[node.NumKeys] = kPrime
+			node.Pointers[node.NumKeys+1] = neighbour.Pointers[0]
+			tmp, _ = node.Pointers[node.NumKeys+1].(*Node)
+			tmp.Parent = node
+			node.Parent.Keys[kPrimeIndex] = neighbour.Keys[0]
+		}
+		for i = 0; i < neighbour.NumKeys-1; i++ {
+			neighbour.Keys[i] = neighbour.Keys[i+1]
+			neighbour.Pointers[i] = neighbour.Pointers[i+1]
+		}
+		if !node.IsLeaf {
+			neighbour.Pointers[i] = neighbour.Pointers[i+1]
+		}
+	}
+	node.NumKeys += 1
+	neighbour.NumKeys -= 1
+
+	return
 }
