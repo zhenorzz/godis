@@ -1,2 +1,2 @@
 # godis
-key-value database
+the key-value database
